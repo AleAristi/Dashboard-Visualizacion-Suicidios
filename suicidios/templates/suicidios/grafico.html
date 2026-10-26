@@ -1,0 +1,15 @@
+
+{% extends 'suicidios/base.html' %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block contenido %}
+    <h2 class="mb-3">{{ titulo }}</h2>
+    <p class="lead">{{ descripcion }}</p>
+    
+    <div class="mt-4 text-center">
+        {% if grafico %}
+            <img src="data:image/png;base64,{{ grafico }}" class="img-fluid border rounded shadow-sm" alt="Gráfico">
+        {% else %}
+            <p class="text-muted">No se pudo generar el gráfico.</p>
+        {% endif %}
+    </div>
+{% endblock %}

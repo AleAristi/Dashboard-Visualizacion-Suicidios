@@ -1,0 +1,50 @@
+
+<div class="position-sticky pt-3">
+    <ul class="nav flex-column mb-3">
+        <li class="nav-item">
+            <a class="nav-link text-dark fs-5 fw-bold" href="{% url 'index' %}">Inicio</a>
+        </li>
+    </ul>
+
+    <ul class="nav flex-column mb-3">
+        <li class="nav-item">
+            <a class="nav-link text-dark fw-bold dropdown-toggle" data-bs-toggle="collapse" href="#menuListados" role="button" aria-expanded="false" aria-controls="menuListados">
+                Listados de datos
+            </a>
+            <div class="collapse show" id="menuListados">
+                <ul class="nav flex-column ms-3">
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'listado1' %}">Top 10 Países</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'listado2' %}">Por Grupo Etario</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'listado3' %}">Por Sexo</a>
+                    </li>
+                </ul>
+            </div>
+        </li>
+    </ul>
+
+    <ul class="nav flex-column mb-3">
+        <li class="nav-item">
+            <a class="nav-link text-dark fw-bold dropdown-toggle" data-bs-toggle="collapse" href="#menuGraficos" role="button" aria-expanded="false" aria-controls="menuGraficos">
+                Gráficos
+            </a>
+            <div class="collapse show" id="menuGraficos">
+                <ul class="nav flex-column ms-3">
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'grafico1' %}">Gráfico de Barras</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'grafico2' %}">Gráfico de Líneas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'grafico3' %}">Gráfico de Dispersión</a>
+                    </li>
+                </ul>
+            </div>
+        </li>
+    </ul>
+</div>

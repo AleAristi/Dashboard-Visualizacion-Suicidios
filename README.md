@@ -130,7 +130,7 @@ sudo apt install -y python3-venv python3-pip git
 ### 3. Obtener el proyecto
 
 ```bash
-git clone <URL-DEL-REPOSITORIO>
+git clone https://github.com/AleAristi/Dashboard-Visualizacion-Suicidios.git
 cd Dashboard-Visualizacion-Suicidios
 python3 -m venv venv
 source venv/bin/activate

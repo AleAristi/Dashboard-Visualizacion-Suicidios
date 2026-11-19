@@ -4,7 +4,20 @@
 {% block contenido %}
     <h2 class="mb-3">{{ titulo }}</h2>
     <p class="lead">{{ descripcion }}</p>
-    
+
+    {% if opciones %}
+        {% include 'suicidios/_filtros.html' with filtros=filtros_valores %}
+    {% endif %}
+
+    {% if origen %}
+        <h5>Origen de los datos y cálculos</h5>
+        <p>{{ origen }}</p>
+    {% endif %}
+
+    {% if mensaje_vacio %}
+        <div class="alert alert-warning" role="alert">{{ mensaje_vacio }}</div>
+    {% endif %}
+
     <div class="table-responsive mt-4 col-md-8">
         <table class="table table-striped table-bordered table-hover">
             <thead class="table-dark">
@@ -29,4 +42,11 @@
             </tbody>
         </table>
     </div>
+
+    {% if interpretacion %}
+        <h5 class="mt-4">Interpretación</h5>
+        <p>{{ interpretacion }}</p>
+    {% endif %}
+
+    {% include 'suicidios/aviso_descarga.html' %}
 {% endblock %}

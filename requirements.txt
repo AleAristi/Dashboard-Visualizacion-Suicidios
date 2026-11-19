@@ -4,3 +4,7 @@ sqlparse==0.6.0
 tzdata==2026.4
 pandas
 matplotlib
+reportlab>=4.2,<5
+openpyxl>=3.1.5,<3.2
+whitenoise
+gunicorn

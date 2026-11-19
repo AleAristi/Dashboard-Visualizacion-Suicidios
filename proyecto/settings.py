@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,28 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-i=)li0!e#b2kxrk@$n)$*!%o&xri%r)j(=@z)b12b$cgf8h!3)'
+# En el servidor AWS se define con la variable de entorno DJANGO_SECRET_KEY.
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-i=)li0!e#b2kxrk@$n)$*!%o&xri%r)j(=@z)b12b$cgf8h!3)',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Por defecto True (desarrollo local). En AWS: DJANGO_DEBUG=False
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+# Direcciones desde las que se puede acceder al sitio (IP pública y/o DNS de la
+# instancia EC2), separadas por coma. Ejemplo:
+#   DJANGO_ALLOWED_HOSTS=54.12.34.56,ec2-54-12-34-56.compute-1.amazonaws.com
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
+]
+
+# Orígenes confiables para formularios con POST (por ejemplo el login del admin)
+# cuando se accede por http://IP:PUERTO. Ejemplo: http://54.12.34.56:8000
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+]
 
 
 # Application definition
@@ -49,6 +66,11 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Con DEBUG=False (servidor AWS) Django ya no sirve los archivos estáticos;
+# WhiteNoise se encarga de entregarlos (se llenan con `collectstatic`).
+if not DEBUG:
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
 ROOT_URLCONF = 'proyecto.urls'
 
@@ -77,7 +99,9 @@ WSGI_APPLICATION = 'proyecto.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # Archivo SQLite. La ruta puede cambiarse con DJANGO_DB_PATH
+        # (por ejemplo, para dejar la base fuera de la carpeta del código en AWS).
+        'NAME': os.environ.get('DJANGO_DB_PATH', BASE_DIR / 'db.sqlite3'),
     }
 }
 
@@ -117,6 +141,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+# Carpeta destino de `python manage.py collectstatic` (necesaria con DEBUG=False)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

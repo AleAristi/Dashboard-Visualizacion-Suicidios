@@ -1,0 +1,30 @@
+{% load static %}
+<div class="d-flex flex-wrap gap-2 mt-3 mb-2">
+    <button type="button" class="btn btn-danger boton-descarga"
+            data-url="{{ url_pdf }}"
+            data-nombre="{{ slug }}.pdf" data-formato="PDF"
+            data-tipo="application/pdf">Descarga en PDF</button>
+    <button type="button" class="btn btn-success boton-descarga"
+            data-url="{{ url_excel }}"
+            data-nombre="{{ slug }}.xlsx" data-formato="Excel"
+            data-tipo="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">Descarga en Excel</button>
+</div>
+
+<p id="estado-descarga" role="status" aria-live="polite" class="mt-2"></p>
+
+<dialog id="aviso-descarga" aria-labelledby="titulo-aviso"
+        aria-describedby="mensaje-descarga">
+    <h2 id="titulo-aviso" class="h5">Descarga del reporte</h2>
+    <p id="mensaje-descarga"></p>
+    <form method="dialog">
+        <button type="submit" class="btn btn-primary" autofocus>Aceptar</button>
+    </form>
+</dialog>
+
+<noscript>
+    <p>Active JavaScript para ver los avisos.</p>
+    <a href="{{ url_pdf }}">Descargar PDF sin aviso</a>
+    <a href="{{ url_excel }}">Descargar Excel sin aviso</a>
+</noscript>
+
+<script src="{% static 'suicidios/descargas.js' %}" defer></script>

@@ -1,73 +1,197 @@
 
-from django.shortcuts import render
-from django.conf import settings
-import os
-import pandas as pd
 import base64
 from io import BytesIO
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-def get_dataframe():
-    # Leer el dataset master.csv que se encuentra en la raíz del proyecto
-    csv_path = os.path.join(settings.BASE_DIR, 'master.csv')
-    df = pd.read_csv(csv_path)
-    # Limpiar columnas
-    df.columns = [c.strip() for c in df.columns]
-    return df
+from xml.sax.saxutils import escape
+
+from django.http import FileResponse, Http404
+from django.shortcuts import render
+from django.urls import reverse
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
+
+from .reportes import REPORTES, TASA, get_dataframe, leer_filtros, mensaje_sin_datos, opciones_filtros, ranking_paises, filtros_como_texto
 
 def index(request):
     return render(request, "suicidios/index.html")
 
+def _contexto_reporte(request, numero):
+    """Arma el contexto del reporte N, con las URLs de descarga (conservando los filtros)."""
+    if numero not in REPORTES:
+        raise Http404("Reporte no encontrado")
+    reporte = REPORTES[numero](request.GET)
+    consulta = request.GET.urlencode()
+    sufijo = f"?{consulta}" if consulta else ""
+    reporte["numero"] = numero
+    reporte["url_pdf"] = reverse("listado_pdf", args=[numero]) + sufijo
+    reporte["url_excel"] = reverse("listado_excel", args=[numero]) + sufijo
+    return reporte
+
+
 def listado1(request):
-    df = get_dataframe()
-    # 1. Top 10 paises con mayor tasa de suicidios promedio
-    s_pais = df.groupby("country")["suicides/100k pop"].mean().sort_values(ascending=False).head(10).reset_index()
-    # Redondear para mejor visualizacion
-    s_pais["suicides/100k pop"] = s_pais["suicides/100k pop"].round(2)
-    datos = s_pais.to_dict('records')
-    
-    contexto = {
-        "titulo": "Top 10 Países con mayor tasa de suicidios",
-        "descripcion": "Esta tabla presenta los 10 países con la mayor tasa promedio de suicidios por cada 100.000 habitantes entre 1985 y 2016.",
-        "columnas": ["País", "Tasa Promedio (por 100k)"],
-        "filas": [[d["country"], d["suicides/100k pop"]] for d in datos]
-    }
-    return render(request, "suicidios/listado.html", contexto)
+    return render(request, "suicidios/listado.html", _contexto_reporte(request, 1))
+
 
 def listado2(request):
-    df = get_dataframe()
-    # 2. Tasa de suicidios por grupo etario
-    s_edad = df.groupby("age")["suicides/100k pop"].mean().sort_values(ascending=False).reset_index()
-    s_edad["suicides/100k pop"] = s_edad["suicides/100k pop"].round(2)
-    datos = s_edad.to_dict('records')
-    
-    contexto = {
-        "titulo": "Tasa promedio por Grupo Etario",
-        "descripcion": "El listado muestra cómo varía el promedio de suicidios por cada 100.000 habitantes dependiendo del rango de edad. Se observa mayor incidencia en grupos de mayor edad.",
-        "columnas": ["Grupo Etario", "Tasa Promedio (por 100k)"],
-        "filas": [[d["age"], d["suicides/100k pop"]] for d in datos]
-    }
-    return render(request, "suicidios/listado.html", contexto)
+    return render(request, "suicidios/listado.html", _contexto_reporte(request, 2))
+
 
 def listado3(request):
-    df = get_dataframe()
-    # 3. Tasa de suicidios por género
-    s_sex = df.groupby("sex")["suicides/100k pop"].mean().sort_values(ascending=False).reset_index()
-    s_sex["suicides/100k pop"] = s_sex["suicides/100k pop"].round(2)
-    # Traducir a español
-    traduccion = {"male": "Hombres", "female": "Mujeres"}
-    s_sex["sex"] = s_sex["sex"].map(traduccion)
-    datos = s_sex.to_dict('records')
-    
-    contexto = {
-        "titulo": "Tasa promedio por Sexo",
-        "descripcion": "Esta tabla evidencia la marcada diferencia en la tasa de suicidios según el sexo biológico, siendo la tasa promedio masculina notoriamente más alta.",
-        "columnas": ["Sexo", "Tasa Promedio (por 100k)"],
-        "filas": [[d["sex"], d["suicides/100k pop"]] for d in datos]
-    }
-    return render(request, "suicidios/listado.html", contexto)
+    return render(request, "suicidios/listado.html", _contexto_reporte(request, 3))
+
+
+def listado4(request):
+    return render(request, "suicidios/listado.html", _contexto_reporte(request, 4))
+
+
+def _texto(valor):
+    """Texto de una celda para el PDF: 2 decimales en floats y separador de miles en enteros."""
+    if isinstance(valor, float):
+        return f"{valor:.2f}"
+    if isinstance(valor, int):
+        return f"{valor:,}".replace(",", ".")
+    return str(valor)
+
+
+def listado_pdf(request, numero):
+    """Descarga en PDF del reporte N (respeta los filtros recibidos en la URL)."""
+    reporte = _contexto_reporte(request, numero)
+    columnas = reporte["columnas"]
+    buffer = BytesIO()
+    documento = SimpleDocTemplate(
+        buffer, pagesize=A4, rightMargin=24, leftMargin=24,
+        topMargin=24, bottomMargin=24, title=reporte["titulo"],
+    )
+    estilos = getSampleStyleSheet()
+    celda = ParagraphStyle("Celda", fontName="Helvetica", fontSize=9,
+                           leading=12, wordWrap="CJK")
+    encabezado = ParagraphStyle("Encabezado", parent=celda, fontName="Helvetica-Bold")
+
+    # Tabla: encabezados + una fila por registro
+    filas = [[Paragraph(escape(texto), encabezado) for texto in columnas]]
+    for fila in reporte["filas"]:
+        filas.append([Paragraph(escape(_texto(valor)), celda) for valor in fila])
+    if not reporte["filas"]:
+        mensaje = reporte.get("mensaje_vacio", "No hay registros disponibles.")
+        filas.append([Paragraph(escape(mensaje), celda)] + [""] * (len(columnas) - 1))
+
+    # Ancho de cada columna proporcional a su contenido (la hoja A4 tiene 547 pt útiles)
+    largos = [
+        max([len(col) // 2, 6] + [len(_texto(f[i])) for f in reporte["filas"]])
+        for i, col in enumerate(columnas)
+    ]
+    anchos = [547 * largo / sum(largos) for largo in largos]
+    tabla = LongTable(filas, colWidths=anchos, repeatRows=1, hAlign="LEFT")
+    formato = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#DCE6F1")),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#BBBBBB")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]
+    if not reporte["filas"]:
+        formato.append(("SPAN", (0, 1), (-1, 1)))
+    tabla.setStyle(TableStyle(formato))
+
+    # Mismo contenido explicativo que se ve en pantalla
+    normal = estilos["Normal"]
+    seccion = estilos["Heading3"]
+    elementos = [Paragraph(escape(reporte["titulo"]), estilos["Title"])]
+    if reporte.get("filtros"):
+        elementos.append(Paragraph("Filtros aplicados", seccion))
+        for nombre, valor in reporte["filtros"]:
+            elementos.append(Paragraph(f"<b>{escape(nombre)}:</b> {escape(str(valor))}", normal))
+    elementos.append(Paragraph("Descripción", seccion))
+    elementos.append(Paragraph(escape(reporte["descripcion"]), normal))
+    if reporte.get("origen"):
+        elementos.append(Paragraph("Origen de los datos y cálculos", seccion))
+        elementos.append(Paragraph(escape(reporte["origen"]), normal))
+    elementos += [Spacer(1, 12), tabla]
+    if reporte.get("interpretacion"):
+        elementos.append(Paragraph("Interpretación", seccion))
+        elementos.append(Paragraph(escape(reporte["interpretacion"]), normal))
+
+    documento.build(elementos)
+    buffer.seek(0)
+    return FileResponse(
+        buffer, as_attachment=True, filename=f"{reporte['slug']}.pdf",
+        content_type="application/pdf",
+    )
+
+
+def listado_excel(request, numero):
+    """Descarga en Excel (.xlsx) del reporte N (respeta los filtros recibidos en la URL)."""
+    reporte = _contexto_reporte(request, numero)
+    columnas = reporte["columnas"]
+
+    libro = Workbook()  # Crear el archivo Excel en memoria.
+    hoja = libro.active
+    hoja.title = "Datos"
+    hoja.append(columnas)
+    for fila in reporte["filas"]:
+        hoja.append(fila)
+    for fila in hoja.iter_rows(min_row=2):
+        for celda in fila:
+            if isinstance(celda.value, str):
+                celda.data_type = "s"  # Conservar los textos como datos, no fórmulas.
+            elif isinstance(celda.value, float):
+                celda.number_format = "0.00"
+            elif isinstance(celda.value, int):
+                celda.number_format = "#,##0"
+
+    borde = Side(style="thin", color="D9D9D9")
+    for fila in hoja:
+        for celda in fila:
+            celda.border = Border(left=borde, right=borde, top=borde, bottom=borde)
+            celda.alignment = Alignment(vertical="top", wrap_text=True)
+    for celda in hoja[1]:
+        celda.font = Font(bold=True, color="FFFFFF")
+        celda.fill = PatternFill("solid", fgColor="1F4E78")
+
+    for numero_col, nombre in enumerate(columnas, start=1):
+        mayor = max([len(nombre)] + [len(_texto(f[numero_col - 1])) for f in reporte["filas"]])
+        hoja.column_dimensions[get_column_letter(numero_col)].width = min(max(mayor + 4, 12), 45)
+    hoja.freeze_panes = "A2"  # Mantener visible el encabezado al desplazarse.
+    hoja.auto_filter.ref = hoja.dimensions
+
+    # Segunda hoja: la explicación que se muestra en pantalla
+    info = libro.create_sheet("Explicación")
+    info.column_dimensions["A"].width = 28
+    info.column_dimensions["B"].width = 110
+    info.append(["Reporte", reporte["titulo"]])
+    for nombre, valor in reporte.get("filtros", []):
+        info.append([f"Filtro - {nombre}", str(valor)])
+    info.append(["Descripción", reporte["descripcion"]])
+    if reporte.get("origen"):
+        info.append(["Origen de los datos", reporte["origen"]])
+    if reporte.get("interpretacion"):
+        info.append(["Interpretación", reporte["interpretacion"]])
+    if not reporte["filas"] and reporte.get("mensaje_vacio"):
+        info.append(["Aviso", reporte["mensaje_vacio"]])
+    for fila in info.iter_rows():
+        fila[0].font = Font(bold=True)
+        for celda in fila:
+            celda.alignment = Alignment(vertical="top", wrap_text=True)
+            if isinstance(celda.value, str):
+                celda.data_type = "s"
+
+    buffer = BytesIO()
+    libro.save(buffer)
+    buffer.seek(0)
+    return FileResponse(
+        buffer, as_attachment=True, filename=f"{reporte['slug']}.xlsx",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
 
 def grafico1(request):
     df = get_dataframe()
@@ -151,3 +275,51 @@ def grafico3(request):
         "descripcion": "El diagrama de dispersión compara el nivel de ingresos de cada país con su tasa de suicidios. No se percibe una correlación lineal fuerte y clara."
     }
     return render(request, "suicidios/grafico.html", contexto)
+
+
+def grafico4(request):
+    """Gráfico dinámico: ranking de países según sexo, grupo etario, período y cantidad de países."""
+    df = get_dataframe()
+    filtros = leer_filtros(request.GET, df)
+    ranking = ranking_paises(df, filtros)  # misma función que usa el reporte 4
+
+    consulta = request.GET.urlencode()
+    contexto = {
+        "titulo": "Gráfico Dinámico: Ranking de países por tasa de suicidios",
+        "descripcion": (
+            "Muestra los países con mayor tasa promedio de suicidios por cada 100.000 habitantes. "
+            "Usa los filtros para cambiar el sexo, el grupo etario, el período y la cantidad de países; "
+            "el gráfico se actualiza al presionar «Actualizar»."
+        ),
+        "variables": [
+            ("Eje horizontal (X)", "Tasa promedio de suicidios por cada 100.000 habitantes."),
+            ("Eje vertical (Y)", "País, ordenado de mayor a menor tasa."),
+        ],
+        "filtros": filtros,
+        "filtros_texto": filtros_como_texto(filtros),
+        "opciones": opciones_filtros(df),
+        "url_reporte": reverse("listado4") + (f"?{consulta}" if consulta else ""),
+    }
+
+    if ranking.empty:
+        contexto["mensaje_vacio"] = mensaje_sin_datos(filtros)
+        return render(request, "suicidios/grafico_dinamico.html", contexto)
+
+    figura, eje = plt.subplots(figsize=(8, max(3, 0.45 * len(ranking) + 1.5)))
+    barras = eje.barh(ranking["pais"], ranking["tasa"], color="#2A9D8F")
+    eje.invert_yaxis()  # el país con mayor tasa queda arriba
+    eje.set_title(f"Top {len(ranking)} países por tasa promedio de suicidios ({filtros['desde']}-{filtros['hasta']})")
+    eje.set_xlabel("Suicidios por cada 100k hab. (promedio)")
+    eje.set_ylabel("País")
+    eje.grid(axis="x", alpha=0.3)
+    eje.bar_label(barras, fmt="%.1f", padding=3)
+    eje.margins(x=0.1)
+    figura.tight_layout()
+
+    buffer = BytesIO()
+    figura.savefig(buffer, format="png", dpi=120)
+    plt.close(figura)
+    buffer.seek(0)
+    contexto["grafico"] = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    buffer.close()
+    return render(request, "suicidios/grafico_dinamico.html", contexto)

@@ -1,0 +1,33 @@
+
+{% extends 'suicidios/base.html' %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block contenido %}
+    <h2 class="mb-3">{{ titulo }}</h2>
+    <p class="lead">{{ descripcion }}</p>
+
+    {% include 'suicidios/_filtros.html' %}
+
+    {% if mensaje_vacio %}
+        <div class="alert alert-warning" role="alert">{{ mensaje_vacio }}</div>
+    {% else %}
+        <div class="text-center">
+            <img src="data:image/png;base64,{{ grafico }}" class="img-fluid border rounded shadow-sm" alt="{{ titulo }}">
+        </div>
+
+        <div class="mt-4">
+            <h5>¿Qué representa este gráfico?</h5>
+            <p>
+                Cada barra corresponde a un país y su largo indica la tasa promedio de suicidios por cada
+                100.000 habitantes, considerando solo los registros que cumplen los filtros elegidos
+                ({% for nombre, valor in filtros_texto %}{{ nombre|lower }}: {{ valor }}{% if not forloop.last %}; {% endif %}{% endfor %}).
+            </p>
+            <h5>Variables</h5>
+            <ul>
+                {% for nombre, texto in variables %}
+                    <li><strong>{{ nombre }}:</strong> {{ texto }}</li>
+                {% endfor %}
+            </ul>
+            <a href="{{ url_reporte }}" class="btn btn-outline-secondary">Ver los datos de este gráfico en el reporte</a>
+        </div>
+    {% endif %}
+{% endblock %}

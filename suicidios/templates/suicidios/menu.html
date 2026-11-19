@@ -9,7 +9,7 @@
     <ul class="nav flex-column mb-3">
         <li class="nav-item">
             <a class="nav-link text-dark fw-bold dropdown-toggle" data-bs-toggle="collapse" href="#menuListados" role="button" aria-expanded="false" aria-controls="menuListados">
-                Listados de datos
+                Reportes (listados de datos)
             </a>
             <div class="collapse show" id="menuListados">
                 <ul class="nav flex-column ms-3">
@@ -21,6 +21,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link text-secondary" href="{% url 'listado3' %}">Por Sexo</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'listado4' %}">Ranking de Países (filtros)</a>
                     </li>
                 </ul>
             </div>
@@ -42,6 +45,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link text-secondary" href="{% url 'grafico3' %}">Gráfico de Dispersión</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="{% url 'grafico4' %}">Gráfico Dinámico: Ranking</a>
                     </li>
                 </ul>
             </div>

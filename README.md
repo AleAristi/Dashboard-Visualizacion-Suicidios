@@ -12,6 +12,8 @@ dataset *Suicide Rates Overview* (`master.csv`), almacenado en una base de datos
 - Vicente Perez
 - Nicolas Vega
 
+## Video
+Demostracion: https://drive.google.com/file/d/178eOnSgW4yTLrCaJ-ZWIe5Z2BiLMtYC_/view
 
 ## Funcionalidades
 

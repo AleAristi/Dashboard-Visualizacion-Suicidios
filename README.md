@@ -12,11 +12,6 @@ dataset *Suicide Rates Overview* (`master.csv`), almacenado en una base de datos
 - Vicente Perez
 - Nicolas Vega
 
-## Enlaces de entrega
-
-- **Sitio en AWS:** http://`<IP-PUBLICA-O-DNS-DE-LA-INSTANCIA>`:8000/suicidios/
-- **Video 1 – Proceso de despliegue:** _pegar enlace_
-- **Video 2 – Presentación del software y explicación del código:** _pegar enlace_
 
 ## Funcionalidades
 
